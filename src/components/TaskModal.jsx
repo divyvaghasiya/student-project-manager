@@ -1,60 +1,92 @@
 import { useState } from 'react'
-import { PRIORITIES, STATUSES, uid } from '../store'
-import { Field, Modal, btnPrimary, btnSecondary, inputCls } from './ui'
+import { Trash2 } from 'lucide-react'
+import { PRIORITIES, STATUSES, uid } from '@/store'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { StudentAvatar } from '@/components/shared'
+
+const NONE = 'none'
 
 export default function TaskModal({ task, members, defaultStatus = 'todo', onSave, onDelete, onClose }) {
   const [form, setForm] = useState(
     task ?? { title: '', status: defaultStatus, priority: 'medium', assigneeId: null, dueDate: '' },
   )
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value || (k === 'assigneeId' ? null : '') })
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
   const submit = (e) => {
     e.preventDefault()
     if (!form.title.trim()) return
-    onSave(task ? form : { ...form, id: uid() })
+    onSave(task ? { ...form, title: form.title.trim() } : { ...form, title: form.title.trim(), id: uid() })
   }
 
   return (
-    <Modal title={task ? 'Edit task' : 'New task'} onClose={onClose}>
-      <form onSubmit={submit} className="space-y-3">
-        <Field label="Title">
-          <input autoFocus className={inputCls} value={form.title} onChange={set('title')} placeholder="What needs doing?" />
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Status">
-            <select className={inputCls} value={form.status} onChange={set('status')}>
-              {STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-          </Field>
-          <Field label="Priority">
-            <select className={inputCls} value={form.priority} onChange={set('priority')}>
-              {PRIORITIES.map((p) => <option key={p} value={p} className="capitalize">{p}</option>)}
-            </select>
-          </Field>
-          <Field label="Assignee">
-            <select className={inputCls} value={form.assigneeId ?? ''} onChange={set('assigneeId')}>
-              <option value="">Unassigned</option>
-              {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Due date">
-            <input type="date" className={inputCls} value={form.dueDate} onChange={set('dueDate')} />
-          </Field>
-        </div>
-        <div className="flex items-center justify-between pt-2">
-          {task && onDelete ? (
-            <button type="button" onClick={onDelete} className="text-sm font-medium text-rose-600 hover:underline">
-              Delete task
-            </button>
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-2">
-            <button type="button" onClick={onClose} className={btnSecondary}>Cancel</button>
-            <button type="submit" disabled={!form.title.trim()} className={btnPrimary}>Save</button>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{task ? 'Edit task' : 'New task'}</DialogTitle>
+          <DialogDescription>Assign it to a teammate and set a deadline.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="task-title">Title</Label>
+            <Input id="task-title" autoFocus value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="What needs to be done?" />
           </div>
-        </div>
-      </form>
-    </Modal>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label>Status</Label>
+              <Select value={form.status} onValueChange={(v) => set('status', v)}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STATUSES.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Priority</Label>
+              <Select value={form.priority} onValueChange={(v) => set('priority', v)}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Assignee</Label>
+              <Select value={form.assigneeId ?? NONE} onValueChange={(v) => set('assigneeId', v === NONE ? null : v)}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Unassigned</SelectItem>
+                  {members.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      <StudentAvatar name={m.name} size="xs" /> {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="task-due">Due date</Label>
+              <Input id="task-due" type="date" value={form.dueDate} onChange={(e) => set('dueDate', e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter className="mt-2 sm:justify-between">
+            {task && onDelete ? (
+              <Button type="button" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={onDelete}>
+                <Trash2 /> Delete
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+              <Button type="submit" disabled={!form.title.trim()}>{task ? 'Save changes' : 'Create task'}</Button>
+            </div>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

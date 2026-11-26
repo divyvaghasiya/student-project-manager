@@ -1,115 +1,147 @@
 import { useState } from 'react'
-import { STATUSES, progress } from '../store'
-import Board from './Board'
-import TaskModal from './TaskModal'
-import TeamPanel from './TeamPanel'
-import { AvatarStack, COLOR_CLASSES, DueBadge, Icon, ProgressBar, btnDangerGhost, btnPrimary, btnSecondary, useConfirm } from './ui'
+import { toast } from 'sonner'
+import { CheckCircle2, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { STATUSES, progress } from '@/store'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import Board from '@/components/Board'
+import TaskModal from '@/components/TaskModal'
+import TeamPanel from '@/components/TeamPanel'
+import { AvatarStack, DueBadge, StudentAvatar, projectColor } from '@/components/shared'
 
-export default function ProjectView({ project, students, currentStudentId, dispatch, onEditProject, onDeleted }) {
+function Meta({ label, children }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="mt-1.5">{children}</div>
+    </div>
+  )
+}
+
+export default function ProjectView({ project, students, currentStudentId, dispatch, onEditProject, onDeleteProject }) {
   const [taskModal, setTaskModal] = useState(null) // { task?, status? }
   const [filter, setFilter] = useState('all')
-  const confirm = useConfirm()
   const members = project.memberIds.map((id) => students.find((s) => s.id === id)).filter(Boolean)
   const creator = students.find((s) => s.id === project.createdBy)
   const pct = progress(project)
+  const c = projectColor(project.color)
   const counts = Object.fromEntries(STATUSES.map((s) => [s.id, project.tasks.filter((t) => t.status === s.id).length]))
 
-  const deleteProject = () =>
-    confirm({
-      title: 'Delete this project?',
-      message: `“${project.name}” and all of its ${project.tasks.length} tasks and responsibilities will be permanently deleted. This can't be undone.`,
-      confirmLabel: 'Delete project',
-      onConfirm: () => {
-        dispatch({ type: 'deleteProject', id: project.id })
-        onDeleted()
-      },
-    })
+  const toggleComplete = () => {
+    dispatch({ type: 'updateProject', id: project.id, patch: { completed: !project.completed } })
+    toast.success(project.completed ? 'Project reopened' : 'Project marked as completed', { description: project.name })
+  }
 
   return (
     <div className="space-y-6">
       {project.completed && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3">
-          <p className="flex items-center gap-2 text-sm font-medium text-emerald-800">
-            <Icon name="checkCircle" className="h-5 w-5" /> This project is marked as completed. You can keep it for reference or delete it.
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+          <p className="flex items-center gap-2 text-sm font-medium text-emerald-800 dark:text-emerald-300">
+            <CheckCircle2 className="size-4" /> This project is completed. Keep it for reference, reopen it, or delete it.
           </p>
-          <button onClick={deleteProject} className="text-sm font-semibold text-rose-600 hover:underline">Delete project</button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={toggleComplete}><RotateCcw /> Reopen</Button>
+            <Button size="sm" variant="destructive" onClick={onDeleteProject}><Trash2 /> Delete</Button>
+          </div>
         </div>
       )}
 
-      <div className={`overflow-hidden rounded-2xl border border-t-4 border-slate-200/80 bg-white shadow-sm ${COLOR_CLASSES[project.color].border}`}>
-        <div className="p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+      <Card className="relative gap-0 overflow-hidden py-0">
+        <div className={cn('pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b to-transparent', c.glow)} />
+        <div className="relative flex flex-wrap items-start justify-between gap-4 p-6">
+          <div className="flex min-w-0 gap-4">
+            <div className={cn('flex size-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold', c.soft)}>
+              {project.name.slice(0, 1).toUpperCase()}
+            </div>
             <div className="min-w-0">
-              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${COLOR_CLASSES[project.color].soft}`}>
-                {project.course || 'No course'}
-              </span>
-              <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{project.name}</h1>
-              {project.description && <p className="mt-1.5 max-w-2xl text-sm text-slate-600">{project.description}</p>}
-              {creator && <p className="mt-2 text-xs text-slate-400">Created by <span className="font-semibold text-slate-600">{creator.name}</span></p>}
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
+                {project.completed && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">Completed</Badge>}
+              </div>
+              <p className="mt-0.5 text-sm text-muted-foreground">{project.course || 'No course'}</p>
+              {project.description && <p className="mt-3 max-w-2xl text-sm text-muted-foreground">{project.description}</p>}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button onClick={onEditProject} className={btnSecondary}>
-                <Icon name="pencil" /> Edit
-              </button>
-              <button
-                onClick={() => dispatch({ type: 'updateProject', id: project.id, patch: { completed: !project.completed } })}
-                className={btnSecondary}
-              >
-                <Icon name={project.completed ? 'undo' : 'checkCircle'} /> {project.completed ? 'Reopen' : 'Mark as completed'}
-              </button>
-              <button onClick={deleteProject} className={btnDangerGhost} title="Delete project">
-                <Icon name="trash" /> Delete
-              </button>
-              <button onClick={() => setTaskModal({ status: 'todo' })} className={btnPrimary}>
-                <Icon name="plus" /> Add task
-              </button>
-            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={onEditProject}><Pencil /> Edit</Button>
+            <Button onClick={() => setTaskModal({ status: 'todo' })}><Plus /> Add task</Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" aria-label="More project actions"><MoreHorizontal /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onClick={onEditProject}><Pencil /> Edit project</DropdownMenuItem>
+                <DropdownMenuItem onClick={toggleComplete}>
+                  {project.completed ? <><RotateCcw /> Reopen project</> : <><CheckCircle2 /> Mark as completed</>}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={onDeleteProject}><Trash2 /> Delete project</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
-        <div className="grid gap-px border-t border-slate-100 bg-slate-100 sm:grid-cols-4">
-          <div className="bg-white px-6 py-4 sm:col-span-2">
-            <div className="mb-2 flex justify-between text-xs font-medium text-slate-500">
-              <span>Overall progress</span>
-              <span className="font-bold text-slate-800">{pct}%</span>
+        <div className="relative grid gap-6 border-t bg-muted/30 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4">
+          <Meta label="Progress">
+            <div className="flex items-center gap-3">
+              <Progress value={pct} className="h-1.5 flex-1" indicatorClassName={c.indicator} />
+              <span className="text-sm font-semibold tabular-nums">{pct}%</span>
             </div>
-            <ProgressBar value={pct} color={project.color} />
-            <div className="mt-2 flex gap-4 text-xs text-slate-500">
-              <span><b className="text-slate-700">{counts.todo}</b> to do</span>
-              <span><b className="text-sky-600">{counts.doing}</b> in progress</span>
-              <span><b className="text-emerald-600">{counts.done}</b> done</span>
-            </div>
-          </div>
-          <div className="bg-white px-6 py-4">
-            <p className="mb-1.5 text-xs font-medium text-slate-500">Final deadline</p>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {counts.todo} to do · {counts.doing} in progress · {counts.done} done
+            </p>
+          </Meta>
+          <Meta label="Final deadline">
             {project.dueDate ? (
-              <>
-                <p className="text-sm font-bold text-slate-800">{project.dueDate}</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-sm font-semibold">
+                  {new Date(project.dueDate + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
                 <DueBadge date={project.dueDate} done={project.completed || pct === 100} />
-              </>
+              </div>
             ) : (
-              <p className="text-sm text-slate-400">Not set</p>
+              <span className="text-sm text-muted-foreground">Not set</span>
             )}
-          </div>
-          <div className="bg-white px-6 py-4">
-            <p className="mb-1.5 text-xs font-medium text-slate-500">Team</p>
-            {members.length ? <AvatarStack people={members} /> : <p className="text-sm text-slate-400">No members</p>}
-          </div>
+          </Meta>
+          <Meta label="Team">
+            {members.length ? <AvatarStack people={members} max={5} /> : <span className="text-sm text-muted-foreground">No members</span>}
+          </Meta>
+          <Meta label="Created by">
+            {creator ? (
+              <div className="flex items-center gap-2">
+                <StudentAvatar name={creator.name} size="xs" />
+                <span className="truncate text-sm font-medium">{creator.name}</span>
+              </div>
+            ) : (
+              <span className="text-sm text-muted-foreground">Unknown</span>
+            )}
+          </Meta>
         </div>
-      </div>
+      </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Filter</span>
+          <div className="flex flex-wrap items-center gap-1.5">
             {[{ id: 'all', name: 'Everyone' }, ...members, { id: 'unassigned', name: 'Unassigned' }].map((m) => (
-              <button
+              <Button
                 key={m.id}
+                size="sm"
+                variant={filter === m.id ? 'default' : 'outline'}
+                className="h-7 rounded-full px-3 text-xs"
                 onClick={() => setFilter(m.id)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${filter === m.id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}`}
               >
                 {m.id === currentStudentId ? `${m.name} (you)` : m.name}
-              </button>
+              </Button>
             ))}
           </div>
           <Board
@@ -137,10 +169,12 @@ export default function ProjectView({ project, students, currentStudentId, dispa
                 ? { type: 'updateTask', projectId: project.id, taskId: task.id, patch: task }
                 : { type: 'addTask', projectId: project.id, task },
             )
+            toast.success(taskModal.task ? 'Task updated' : 'Task added', { description: task.title })
             setTaskModal(null)
           }}
           onDelete={() => {
             dispatch({ type: 'deleteTask', projectId: project.id, taskId: taskModal.task.id })
+            toast.success('Task deleted', { description: taskModal.task.title })
             setTaskModal(null)
           }}
         />

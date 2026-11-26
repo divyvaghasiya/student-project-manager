@@ -1,7 +1,27 @@
-import { STATUSES } from '../store'
-import { COLOR_CLASSES, DueBadge, PriorityBadge } from './ui'
+import { ChevronLeft, ChevronRight, Circle, CircleCheck, CircleDashed, ClipboardList } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { STATUSES } from '@/store'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Progress } from '@/components/ui/progress'
+import { DueBadge, EmptyState, PriorityBadge, StudentAvatar, projectColor } from '@/components/shared'
 
 const byDate = (a, b) => (a.dueDate || '9').localeCompare(b.dueDate || '9')
+const COLUMN = {
+  todo: { icon: Circle, tone: 'text-muted-foreground' },
+  doing: { icon: CircleDashed, tone: 'text-sky-500' },
+  done: { icon: CircleCheck, tone: 'text-emerald-500' },
+}
+
+function ProjectTag({ project, onOpen }) {
+  return (
+    <button onClick={() => onOpen(project.id)} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+      <span className={cn('size-1.5 rounded-full', projectColor(project.color).dot)} />
+      {project.name}
+    </button>
+  )
+}
 
 export default function MyWork({ student, projects, dispatch, onOpen }) {
   const mine = projects.filter((p) => p.memberIds.includes(student.id))
@@ -9,83 +29,105 @@ export default function MyWork({ student, projects, dispatch, onOpen }) {
   const resp = mine
     .flatMap((p) => p.responsibilities.filter((r) => r.studentId === student.id).map((r) => ({ ...r, project: p })))
     .sort(byDate)
+  const doneTasks = tasks.filter((t) => t.status === 'done').length
+  const pct = tasks.length ? Math.round((doneTasks / tasks.length) * 100) : 0
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">My work</h1>
-        <p className="text-sm text-slate-500">
-          {student.name}'s tasks and responsibilities across {mine.length} project{mine.length === 1 ? '' : 's'}.
-        </p>
+      <div className="flex flex-wrap items-center gap-4">
+        <StudentAvatar name={student.name} size="lg" />
+        <div className="flex-1">
+          <h1 className="text-2xl font-semibold tracking-tight">My work</h1>
+          <p className="text-muted-foreground">
+            {student.name} · {mine.length} project{mine.length === 1 ? '' : 's'}
+          </p>
+        </div>
+        <Card className="w-full gap-0 py-4 sm:w-64">
+          <CardContent className="px-4">
+            <div className="mb-2 flex justify-between text-sm">
+              <span className="text-muted-foreground">Tasks completed</span>
+              <span className="font-semibold tabular-nums">{doneTasks}/{tasks.length}</span>
+            </div>
+            <Progress value={pct} className="h-1.5" />
+          </CardContent>
+        </Card>
       </div>
 
-      <section>
-        <h2 className="mb-3 text-sm font-semibold text-slate-800">Responsibilities</h2>
-        <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
-          {resp.map((r) => (
-            <li key={r.id} className="flex items-center gap-3 px-4 py-3">
-              <input
-                type="checkbox"
-                checked={r.done}
-                onChange={() => dispatch({ type: 'updateResponsibility', projectId: r.project.id, id: r.id, patch: { done: !r.done } })}
-                className="accent-indigo-600"
-                aria-label={`Mark "${r.title}" done`}
-              />
-              <div className="min-w-0 flex-1">
-                <p className={`truncate text-sm font-medium ${r.done ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{r.title}</p>
-                <button onClick={() => onOpen(r.project.id)} className="flex items-center gap-1.5 text-xs text-slate-500 hover:underline">
-                  <span className={`h-1.5 w-1.5 rounded-full ${COLOR_CLASSES[r.project.color].dot}`} />
-                  {r.project.name}
-                </button>
-              </div>
-              <DueBadge date={r.dueDate} done={r.done} />
-            </li>
-          ))}
-          {!resp.length && <li className="px-4 py-6 text-center text-sm text-slate-400">No responsibilities assigned yet.</li>}
-        </ul>
-      </section>
+      <Card className="gap-4">
+        <CardHeader>
+          <CardTitle>Responsibilities</CardTitle>
+          <CardDescription>Your roles across all projects, sorted by deadline</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {resp.length ? (
+            <ul className="divide-y rounded-lg border">
+              {resp.map((r) => (
+                <li key={r.id} className="flex items-center gap-3 px-4 py-3">
+                  <Checkbox
+                    checked={r.done}
+                    onCheckedChange={() => dispatch({ type: 'updateResponsibility', projectId: r.project.id, id: r.id, patch: { done: !r.done } })}
+                    aria-label={`Mark "${r.title}" done`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className={cn('truncate text-sm font-medium', r.done && 'text-muted-foreground line-through')}>{r.title}</p>
+                    <ProjectTag project={r.project} onOpen={onOpen} />
+                  </div>
+                  <DueBadge date={r.dueDate} done={r.done} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState icon={ClipboardList} title="No responsibilities yet" description="Responsibilities assigned to you in a project's Team panel will show up here." />
+          )}
+        </CardContent>
+      </Card>
 
-      <section>
-        <h2 className="mb-3 text-sm font-semibold text-slate-800">My tasks</h2>
+      <div>
+        <h2 className="mb-3 text-lg font-semibold tracking-tight">My tasks</h2>
         <div className="grid gap-4 lg:grid-cols-3">
           {STATUSES.map((col, i) => {
             const items = tasks.filter((t) => t.status === col.id).sort(byDate)
+            const { icon: ColIcon, tone } = COLUMN[col.id]
             return (
-              <div key={col.id} className="rounded-xl bg-slate-100/70 p-3">
-                <h3 className="mb-3 px-1 text-sm font-semibold text-slate-700">
-                  {col.label} <span className="ml-1 rounded-full bg-white px-2 text-xs font-medium text-slate-500">{items.length}</span>
+              <section key={col.id} className="rounded-xl border bg-muted/50 p-2 dark:bg-muted/20">
+                <h3 className="flex items-center gap-2 px-2 py-1.5 text-sm font-medium">
+                  <ColIcon className={cn('size-4', tone)} /> {col.label}
+                  <span className="text-xs font-normal text-muted-foreground tabular-nums">{items.length}</span>
                 </h3>
-                <ul className="space-y-2">
+                <ul className="mt-1 space-y-2">
                   {items.map((t) => (
-                    <li key={t.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                      <p className={`text-sm font-medium ${t.status === 'done' ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{t.title}</p>
-                      <button onClick={() => onOpen(t.project.id)} className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 hover:underline">
-                        <span className={`h-1.5 w-1.5 rounded-full ${COLOR_CLASSES[t.project.color].dot}`} />
-                        {t.project.name}
-                      </button>
-                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <li key={t.id} className="rounded-lg border bg-card p-3 shadow-xs">
+                      <p className={cn('text-sm font-medium', t.status === 'done' && 'text-muted-foreground line-through')}>{t.title}</p>
+                      <ProjectTag project={t.project} onOpen={onOpen} />
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <PriorityBadge priority={t.priority} />
                           <DueBadge date={t.dueDate} done={t.status === 'done'} />
                         </div>
                         <div className="flex gap-1">
                           {i > 0 && (
-                            <button onClick={() => dispatch({ type: 'updateTask', projectId: t.project.id, taskId: t.id, patch: { status: STATUSES[i - 1].id } })} className="rounded border border-slate-200 px-2 py-0.5 text-[11px] text-slate-500 hover:bg-slate-50" aria-label={`Move to ${STATUSES[i - 1].label}`}>←</button>
+                            <Button variant="outline" size="icon" className="size-6" aria-label={`Move to ${STATUSES[i - 1].label}`}
+                              onClick={() => dispatch({ type: 'updateTask', projectId: t.project.id, taskId: t.id, patch: { status: STATUSES[i - 1].id } })}>
+                              <ChevronLeft className="size-3.5" />
+                            </Button>
                           )}
                           {i < STATUSES.length - 1 && (
-                            <button onClick={() => dispatch({ type: 'updateTask', projectId: t.project.id, taskId: t.id, patch: { status: STATUSES[i + 1].id } })} className="rounded border border-slate-200 px-2 py-0.5 text-[11px] text-slate-500 hover:bg-slate-50" aria-label={`Move to ${STATUSES[i + 1].label}`}>→</button>
+                            <Button variant="outline" size="icon" className="size-6" aria-label={`Move to ${STATUSES[i + 1].label}`}
+                              onClick={() => dispatch({ type: 'updateTask', projectId: t.project.id, taskId: t.id, patch: { status: STATUSES[i + 1].id } })}>
+                              <ChevronRight className="size-3.5" />
+                            </Button>
                           )}
                         </div>
                       </div>
                     </li>
                   ))}
-                  {!items.length && <li className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-xs text-slate-400">Nothing here</li>}
+                  {!items.length && <li className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">Nothing here</li>}
                 </ul>
-              </div>
+              </section>
             )
           })}
         </div>
-      </section>
+      </div>
     </div>
   )
 }

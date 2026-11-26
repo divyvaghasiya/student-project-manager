@@ -1,6 +1,12 @@
 import { useState } from 'react'
-import { uid } from '../store'
-import { COLOR_CLASSES, Field, Modal, btnPrimary, btnSecondary, inputCls } from './ui'
+import { uid } from '@/store'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { StudentAvatar, projectColor } from '@/components/shared'
 
 /** Create a new student and (optionally) add them to one or more projects right away. */
 export default function StudentModal({ students, projects, defaultProjectIds = [], onSave, onClose }) {
@@ -19,38 +25,53 @@ export default function StudentModal({ students, projects, defaultProjectIds = [
   }
 
   return (
-    <Modal title="Add a student" subtitle="New students can be added to projects as team members." onClose={onClose}>
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="Full name">
-          <input autoFocus className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Priya Patel" />
-          {duplicate && <span className="mt-1 block text-xs text-rose-600">A student with this name already exists.</span>}
-        </Field>
-
-        {projects.length > 0 && (
-          <div>
-            <span className="mb-1.5 block text-xs font-semibold text-slate-600">Add to projects</span>
-            <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-1.5">
-              {projects.map((p) => (
-                <label key={p.id} className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-slate-50">
-                  <input type="checkbox" checked={projectIds.includes(p.id)} onChange={() => toggle(p.id)} className="h-4 w-4 accent-indigo-600" />
-                  <span className={`h-2 w-2 rounded-full ${COLOR_CLASSES[p.color].dot}`} />
-                  <span className="truncate text-sm text-slate-700">{p.name}</span>
-                </label>
-              ))}
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add a student</DialogTitle>
+          <DialogDescription>Add a teammate to your workspace and choose which projects they join.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="grid gap-5">
+          <div className="grid gap-2">
+            <Label htmlFor="s-name">Full name</Label>
+            <div className="flex items-center gap-3">
+              <StudentAvatar name={trimmed || '?'} size="md" />
+              <Input id="s-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Priya Patel" aria-invalid={duplicate || undefined} />
             </div>
+            {duplicate && <p className="text-xs text-destructive">A student with this name already exists.</p>}
           </div>
-        )}
 
-        <label className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-700">
-          <input type="checkbox" checked={makeCurrent} onChange={(e) => setMakeCurrent(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
-          This is me – switch to this student
-        </label>
+          {projects.length > 0 && (
+            <div className="grid gap-2">
+              <Label>Add to projects</Label>
+              <ScrollArea className="max-h-44 rounded-lg border">
+                <div className="p-1">
+                  {projects.map((p) => (
+                    <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 text-sm hover:bg-accent">
+                      <Checkbox checked={projectIds.includes(p.id)} onCheckedChange={() => toggle(p.id)} />
+                      <span className={`size-2 rounded-full ${projectColor(p.color).dot}`} />
+                      <span className="truncate">{p.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
 
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className={btnSecondary}>Cancel</button>
-          <button type="submit" disabled={!trimmed || duplicate} className={btnPrimary}>Add student</button>
-        </div>
-      </form>
-    </Modal>
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm hover:bg-accent/50">
+            <Checkbox checked={makeCurrent} onCheckedChange={(v) => setMakeCurrent(!!v)} className="mt-0.5" />
+            <span>
+              <span className="font-medium">This is me</span>
+              <span className="block text-xs text-muted-foreground">Switch to this student after adding them.</span>
+            </span>
+          </label>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={!trimmed || duplicate}>Add student</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
