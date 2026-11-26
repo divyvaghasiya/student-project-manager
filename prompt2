@@ -1,0 +1,6 @@
+prompt :- change the name of these from study teams to the project manager and when I want to add a new student like a new member then the new student with the plus 
+          icon like add a student isn't working, so how can I add a new student in this project? And the delete of the project like deleting from the edit button
+          isn't working, so how can I delete the project if I am done with the project? And try to make the better UI for this using Tailwind CSS.
+
+what i do :- we can now add students in the projects and the delet button is not working so made it working and change the UI using tailwind css, also change the 
+             name to project manager 
