@@ -1,1 +1,0 @@
-make a project manager in the react and use tailwind css for a student team working in a semester project it includes teammates should be able to create the project , every students have tasks , every students have their responsiblities with the deadlines and also a tracking system with to do ,in progress and done
